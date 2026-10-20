@@ -1,0 +1,28 @@
+# Private inputs and scratch output. Never commit these.
+.data/
+.local/
+.env
+.env.*
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Nix build output
+result
