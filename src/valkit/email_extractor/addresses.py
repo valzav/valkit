@@ -50,7 +50,11 @@ def clean_name(text: str) -> str:
 
 
 def _split(text: str, separator: str) -> list[str]:
-    """Split at separators outside quotes and angle brackets."""
+    """Split at separators outside quotes and angle brackets.
+
+    A quote or bracket left open would make the rest of the header one person, so then every
+    separator counts.
+    """
     parts: list[str] = []
     current: list[str] = []
     quoted = bracketed = False
@@ -65,4 +69,6 @@ def _split(text: str, separator: str) -> list[str]:
         else:
             current.append(char)
     parts.append("".join(current))
+    if quoted or bracketed:
+        parts = text.split(separator)
     return [part for part in parts if part.strip()]

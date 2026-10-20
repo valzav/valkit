@@ -206,7 +206,9 @@ def _new_name(messages: list[Message], subject: str, extension: str, taken: set[
     slug = re.sub(r"[\W_]+", "-", subject.lower()).strip("-") or "untitled"
     name = f"{span}-{slug}{extension}"
     suffix = 2
-    while name in taken:
+    # Compared in any case: a case-insensitive disk would open "Draft.md" for "draft.md".
+    taken = {entry.casefold() for entry in taken}
+    while name.casefold() in taken:
         name = f"{span}-{slug}-{suffix}{extension}"
         suffix += 1
     return name

@@ -48,6 +48,10 @@ def test_surname_first_names_are_one_person() -> None:
         Address("Sam Lee", ""),
     ]
     assert parse_addresses("Jane Doe, Sam Lee") == [Address("Jane Doe", ""), Address("Sam Lee", "")]
+    assert parse_addresses('"Doe, Jane <jane@example.com>, Lee, Sam <sam@example.org>') == [
+        Address("Jane Doe", "jane@example.com"),
+        Address("Sam Lee", "sam@example.org"),
+    ]
     assert parse_addresses('"Jane Doe, Jr." <jane@example.com>') == [
         Address("Jane Doe, Jr.", "jane@example.com")
     ]

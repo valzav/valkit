@@ -57,11 +57,19 @@ class ProcessedLog:
         path = self.folder / name
         if path.is_symlink() or not path.is_file():
             return None
+        # On a case-insensitive disk "a.STRICT.md" opens "a.strict.md"; only the exact name counts.
+        if name not in {entry.name for entry in self.folder.iterdir()}:
+            return None
         return name if path.resolve().parent == self.folder.resolve() else None
 
     def owners(self, file_name: str) -> set[str]:
-        """The output formats that have written to this file."""
-        return {fmt for fmt, entries in self._formats.items() if file_name in entries.values()}
+        """The output formats that have written to this file, matched in any case like the disk."""
+        name = file_name.casefold()
+        return {
+            fmt
+            for fmt, entries in self._formats.items()
+            if name in {entry.casefold() for entry in entries.values()}
+        }
 
     def record(self, output_format: str, keys: list[str], file_name: str) -> None:
         entries = self._formats.setdefault(output_format, {})
@@ -81,8 +89,8 @@ class ProcessedLog:
 
 def fits_format(file_name: str, output_format: str) -> bool:
     """Strict output goes only into strict files, and normal output never does."""
-    return file_name.endswith(STRICT_EXTENSION) == output_format.endswith("-strict")
+    return file_name.casefold().endswith(STRICT_EXTENSION) == output_format.endswith("-strict")
 
 
 def _is_plain_name(name: str) -> bool:
-    return name == Path(name).name and name not in {".", ".."} and name.endswith(".md")
+    return name == Path(name).name and name not in {".", ".."} and name.casefold().endswith(".md")

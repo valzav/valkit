@@ -342,7 +342,7 @@ def test_explicit_names_must_fit_the_mode(
 def test_new_topics_never_overwrite_unlogged_files(
     make_eml: MakeEml, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    notes = tmp_path / "20260404-20260405-draft-review.md"
+    notes = tmp_path / "20260404-20260405-Draft-Review.md"
     notes.write_text("my own notes")
 
     run(monkeypatch, str(old(make_eml)), "--by-topic")
@@ -351,3 +351,38 @@ def test_new_topics_never_overwrite_unlogged_files(
     assert (
         "Here is the first draft." in (tmp_path / "20260404-20260405-draft-review-2.md").read_text()
     )
+
+
+def test_case_variants_of_names_cannot_bypass_the_mode_or_owner_checks(
+    make_eml: MakeEml,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run(monkeypatch, str(old(make_eml)))
+    run(monkeypatch, str(old(make_eml)), "--strict")
+    strict_file = tmp_path / "old.strict.md"
+    shared = strict_file.read_text()
+    log = tmp_path / LOG_FILE
+    data = json.loads(log.read_text())
+    keys = list(data["formats"]["markdown"])
+    data["formats"] = {"markdown": dict.fromkeys(keys, "old.STRICT.md")}
+    log.write_text(json.dumps(data))
+
+    run(monkeypatch, str(new(make_eml)))
+    unrelated = export(
+        make_eml,
+        "<div>Unrelated question.</div>",
+        "other.eml",
+        "Fri, 10 Apr 2026 10:00:00 +0000",
+        "Sam Lee <sam@example.org>",
+    )
+    with pytest.raises(SystemExit, match="1 of 1 files failed"):
+        run(monkeypatch, str(unrelated), "-o", str(tmp_path / "shared.Strict.MD"))
+    run(monkeypatch, str(old(make_eml)), "--by-topic")
+    with pytest.raises(SystemExit, match="1 of 1 files failed"):
+        run(monkeypatch, str(unrelated), "-o", str(tmp_path / "20260404-20260405-Draft-Review.md"))
+
+    assert strict_file.read_text() == shared
+    err = capsys.readouterr().err
+    assert "normal output avoids" in err and "holds topics output" in err
