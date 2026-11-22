@@ -27,6 +27,11 @@ def load(path: Path) -> Source:
     assert isinstance(message, EmailMessage)
     if not message.get("From"):
         raise NotAnEmailError(f"{path} is not an email (no From header)")
+    return source_of(message)
+
+
+def source_of(message: EmailMessage) -> Source:
+    """The top-level headers and the text bodies of a parsed message."""
     return Source(
         top=_top_message(message),
         html=_body(message, "html"),
@@ -38,7 +43,12 @@ def _body(message: EmailMessage, subtype: str) -> str | None:
     part = message.get_body(preferencelist=(subtype,))
     if part is None:
         return None
-    content = part.get_content()
+    try:
+        content = part.get_content()
+    except LookupError:
+        # Spam often names a charset Python does not know; read the bytes as UTF-8 instead.
+        payload = part.get_payload(decode=True)
+        return payload.decode("utf-8", "replace") if isinstance(payload, bytes) else None
     return content if isinstance(content, str) else None
 
 

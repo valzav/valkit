@@ -21,6 +21,7 @@ dependencies = [
 [project.scripts]
 email-extractor = "valkit.email_extractor.cli:main"
 mac-apps = "valkit.mac_apps.cli:main"
+mailkeeper = "valkit.mailkeeper.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
