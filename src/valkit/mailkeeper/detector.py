@@ -37,7 +37,9 @@ SCHEMA: dict[str, Any] = {
     },
 }
 
-# The tags that frame the email in the prompt. The email's own text must not close the frame.
+# The tags that frame the email in the prompt. The email's own text must not close the frame:
+# a tag in it becomes [email] or [/email]. Deleting it instead would let </em</email>ail>
+# rebuild one, and the replacement holds no angle bracket, so one pass is enough.
 FRAME_RE = re.compile(r"<\s*/?\s*email\s*>", re.IGNORECASE)
 
 type Post = Callable[[str, bytes], bytes]
@@ -56,7 +58,7 @@ def post_json(url: str, body: bytes) -> bytes:
 
 def request_body(email: EmailText, config: Config) -> dict[str, Any]:
     letter = FRAME_RE.sub(
-        "",
+        lambda tag: tag.group(0).replace("<", "[").replace(">", "]"),
         f"From: {email.sender}\nTo: {email.to}\nCc: {email.cc}\n"
         f"Date: {email.date}\nSubject: {email.subject}\n\n{email.text}",
     )
