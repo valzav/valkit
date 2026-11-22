@@ -128,6 +128,16 @@ def test_wrote_to_compares_whole_addresses() -> None:
     assert mailbox.wrote_to("notbob@shop.test")
 
 
+def test_wrote_to_ignores_addresses_in_display_names() -> None:
+    fake = FakeImap()
+    to = '"bob@shop.test" <alice@shop.test>'
+    fake.folders[SENT] = {5: make_email("owner@example.test", "Hi", to=to)}
+    mailbox = open_mailbox(fake)
+
+    assert not mailbox.wrote_to("bob@shop.test")
+    assert mailbox.wrote_to("alice@shop.test")
+
+
 def test_move_names_the_new_uid_and_a_gmail_label_marks_it() -> None:
     fake = FakeImap()
     fake.folders[SPAM] = {7: make_email("a@shop.test", "One")}

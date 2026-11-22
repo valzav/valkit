@@ -7,9 +7,10 @@ import imaplib
 import re
 from collections.abc import Generator
 from contextlib import contextmanager
+from email.message import EmailMessage
 from typing import Any, Protocol, cast
 
-from valkit.email_extractor.addresses import parse_addresses
+from valkit.mailkeeper.message import addresses
 
 INBOX = "INBOX"
 HEADER_FIELDS = "FROM DATE SUBJECT MESSAGE-ID AUTHENTICATION-RESULTS"
@@ -227,8 +228,5 @@ class ImapMailbox:
 
 def _recipients(raw: bytes) -> set[str]:
     message = email.message_from_bytes(raw, policy=email.policy.default)
-    return {
-        address.email
-        for name in ("To", "Cc", "Bcc")
-        for address in parse_addresses(str(message.get(name, "")))
-    }
+    assert isinstance(message, EmailMessage)
+    return addresses(message, "To") | addresses(message, "Cc") | addresses(message, "Bcc")

@@ -73,3 +73,45 @@ def test_a_forged_own_address_is_not_trusted(config: Config) -> None:
 
 def test_a_subdomain_of_an_own_domain_is_not_an_own_domain(config: Config) -> None:
     assert not trust_of(make_email("news@mail.example.test", "News"), config)
+
+
+def test_an_address_in_the_display_name_is_not_the_sender(config: Config) -> None:
+    # Anyone on a shared mail domain could otherwise pose as a person the owner wrote to.
+    data = make_email('"partner@fund.test" <attacker@fund.test>', "Re: call")
+
+    header = read_header(1, data, config.authserv_id)
+
+    assert header.sender == "attacker@fund.test"
+    assert not trust_of(data, config, frozenset({"partner@fund.test"}))
+
+
+def test_an_encoded_display_name_is_not_the_sender(config: Config) -> None:
+    # Built as bytes: EmailMessage would decode the name before sending it.
+    data = make_email("attacker@fund.test", "Re: call").replace(
+        b"From: attacker@fund.test", b"From: =?utf-8?q?partner=40fund.test?= <attacker@fund.test>"
+    )
+
+    assert read_header(1, data, config.authserv_id).sender == "attacker@fund.test"
+
+
+def test_an_unquoted_address_before_the_mailbox_leaves_no_sender(config: Config) -> None:
+    data = make_email("attacker@fund.test", "Re: call").replace(
+        b"From: attacker@fund.test", b"From: partner@fund.test <attacker@fund.test>"
+    )
+
+    assert read_header(1, data, config.authserv_id).sender == ""
+
+
+def test_an_email_with_two_from_headers_has_no_sender(config: Config) -> None:
+    data = b"From: other@fund.test\n" + make_email("partner@fund.test", "Re: call")
+
+    header = read_header(1, data, config.authserv_id)
+
+    assert header.sender == ""
+    assert not trust_of(data, config, frozenset({"partner@fund.test", "other@fund.test"}))
+
+
+def test_a_from_header_with_two_mailboxes_has_no_sender(config: Config) -> None:
+    data = make_email("partner@fund.test, other@fund.test", "Re: call")
+
+    assert read_header(1, data, config.authserv_id).sender == ""

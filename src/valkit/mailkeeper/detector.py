@@ -5,6 +5,7 @@ and a JSON schema with the reason first and then the class.
 """
 
 import json
+import re
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -36,6 +37,9 @@ SCHEMA: dict[str, Any] = {
     },
 }
 
+# The tags that frame the email in the prompt. The email's own text must not close the frame.
+FRAME_RE = re.compile(r"<\s*/?\s*email\s*>", re.IGNORECASE)
+
 type Post = Callable[[str, bytes], bytes]
 """Sends a JSON body to a URL and returns the response body. Tests pass a fake."""
 
@@ -51,9 +55,10 @@ def post_json(url: str, body: bytes) -> bytes:
 
 
 def request_body(email: EmailText, config: Config) -> dict[str, Any]:
-    letter = (
+    letter = FRAME_RE.sub(
+        "",
         f"From: {email.sender}\nTo: {email.to}\nCc: {email.cc}\n"
-        f"Date: {email.date}\nSubject: {email.subject}\n\n{email.text}"
+        f"Date: {email.date}\nSubject: {email.subject}\n\n{email.text}",
     )
     system = SYSTEM.format(description=config.owner_description, name=config.owner_name)
     return {

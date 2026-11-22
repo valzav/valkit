@@ -1,12 +1,13 @@
 """Read the raw bytes that the mailbox returns."""
 
 import email
+import email.errors
 import email.policy
+from email.headerregistry import AddressHeader, BaseHeader
 from email.message import EmailMessage
 
 from bs4 import BeautifulSoup
 
-from valkit.email_extractor.addresses import parse_addresses
 from valkit.email_extractor.parse import source_of
 from valkit.mailkeeper.model import EmailText, Header
 from valkit.mailkeeper.trust import authenticated
@@ -31,8 +32,7 @@ def _header(message: EmailMessage, name: str) -> str:
 def read_header(uid: int, data: bytes, authserv_id: str) -> Header:
     message = _parse(data)
     from_text = _header(message, "From")
-    senders = parse_addresses(from_text)
-    sender = senders[0].email if len(senders) == 1 else ""
+    sender = _sender(message)
     results = [str(value) for value in message.get_all("Authentication-Results") or []]
     return Header(
         uid=uid,
@@ -43,6 +43,40 @@ def read_header(uid: int, data: bytes, authserv_id: str) -> Header:
         date=_header(message, "Date"),
         authentic=authenticated(results, sender.rpartition("@")[2], authserv_id),
     )
+
+
+def addresses(message: EmailMessage, name: str) -> set[str]:
+    """The addresses in every header of this name, as the email parser reads them.
+
+    Never taken from the header's text: a display name such as "a@x.test" <b@x.test> holds an
+    address that is not the mailbox's.
+    """
+    found: set[str] = set()
+    for header in message.get_all(name) or []:
+        if isinstance(header, AddressHeader):
+            found |= {a.addr_spec.lower() for a in header.addresses if a.username and a.domain}
+    return found
+
+
+def _sender(message: EmailMessage) -> str:
+    """The From address. Empty unless the email has one From header that holds one mailbox
+    and parsed without defects: anything else is not a sender to trust."""
+    try:
+        headers = message.get_all("From") or []
+        if len(headers) != 1:
+            return ""
+        header = headers[0]
+        if not (isinstance(header, BaseHeader) and isinstance(header, AddressHeader)):
+            return ""
+        if header.defects or len(header.addresses) != 1:
+            return ""
+        address = header.addresses[0]
+    except email.errors.MessageError, ValueError, IndexError:
+        # The parser can fail on a malformed header; such an email has no sender to trust.
+        return ""
+    if not address.username or not address.domain:
+        return ""
+    return address.addr_spec.lower()
 
 
 def read_text(data: bytes) -> EmailText:
